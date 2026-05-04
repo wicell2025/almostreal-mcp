@@ -2,7 +2,7 @@ import 'dotenv/config';
 
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { SSEServerTransport }   from '@modelcontextprotocol/sdk/server/sse.js';
-import express                  from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 
 import { createServer } from './server.js';
 
@@ -15,16 +15,39 @@ if (PORT) {
   const app = express();
   app.use(express.json());
 
+  // ── CORS — must run before every route ───────────────────────────────────
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    res.setHeader('Access-Control-Allow-Origin',  '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader(
+      'Access-Control-Allow-Headers',
+      'Content-Type, Authorization, mcp-session-id',
+    );
+    // Preflight: respond immediately with 204 No Content
+    if (req.method === 'OPTIONS') {
+      res.sendStatus(204);
+      return;
+    }
+    next();
+  });
+
   // Map sessionId → transport so POST /messages can route to the right session
   const sessions = new Map<string, SSEServerTransport>();
 
-  app.get('/health', (_req, res) => {
+  app.get('/health', (_req: Request, res: Response) => {
     console.log('Health check hit');
     res.json({ status: 'ok', transport: 'sse', port: PORT });
   });
 
-  app.get('/sse', async (req, res) => {
-    console.log('New SSE connection established');
+  app.get('/sse', async (req: Request, res: Response) => {
+    console.log('New SSE connection from', req.headers.origin ?? 'unknown origin');
+
+    // Explicit SSE headers — required by the MCP SSE transport spec
+    res.setHeader('Content-Type',  'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection',    'keep-alive');
+    res.flushHeaders();
+
     const transport = new SSEServerTransport('/messages', res);
     const server    = createServer();
 
@@ -37,7 +60,7 @@ if (PORT) {
     await server.connect(transport);
   });
 
-  app.post('/messages', async (req, res) => {
+  app.post('/messages', async (req: Request, res: Response) => {
     const sessionId = req.query.sessionId as string;
     const transport = sessions.get(sessionId);
 
