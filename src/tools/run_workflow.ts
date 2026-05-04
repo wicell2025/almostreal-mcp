@@ -1,8 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
-import { callEdgeFunction } from '../client.js';
-
-// createClient is deferred into the function body — no module-level calls
-// that could throw before app.listen() is reached.
+import { getSupabase, callEdgeFunction } from '../client.js';
 
 export const runWorkflowSchema = {
   type: 'object',
@@ -28,14 +24,7 @@ interface Args {
 }
 
 export async function runWorkflow(args: Args): Promise<Record<string, unknown>> {
-  const supabaseUrl  = process.env.SUPABASE_URL;
-  const serviceRole  = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !serviceRole) {
-    throw new Error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set to use run_workflow.');
-  }
-
-  const supabase = createClient(supabaseUrl, serviceRole);
+  const supabase = getSupabase();
 
   // Load workflow definition from the database
   const { data: workflow, error } = await supabase

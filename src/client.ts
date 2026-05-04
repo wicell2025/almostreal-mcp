@@ -1,56 +1,42 @@
-// All env reads are deferred into the function body so module import never throws.
-// The app can bind to PORT and serve /health even before env vars are configured.
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-function getEnv() {
-  const url         = process.env.SUPABASE_URL;
-  const anon        = process.env.SUPABASE_ANON_KEY;
-  const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY;
+// Lazy singleton — created on first use so module import never throws.
+let _supabase: SupabaseClient | null = null;
 
-  if (!url || !anon) {
+export function getSupabase(): SupabaseClient {
+  if (_supabase) return _supabase;
+
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!url || !key) {
     throw new Error(
-      'Missing env vars: SUPABASE_URL and SUPABASE_ANON_KEY must be set. ' +
+      'Missing env vars: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set. ' +
       'Add them in Railway → Variables.',
     );
   }
-  if (!serviceRole) {
-    throw new Error(
-      'Missing env var: SUPABASE_SERVICE_ROLE_KEY must be set. ' +
-      'Find it in Supabase → Project Settings → API → service_role key.',
-    );
-  }
 
-  return { url, anon, serviceRole };
+  _supabase = createClient(url, key, { auth: { persistSession: false } });
+  return _supabase;
 }
 
 export async function callEdgeFunction<T = unknown>(
   name: string,
   body: unknown,
 ): Promise<T> {
-  const { url, anon, serviceRole } = getEnv();
-
-  const res = await fetch(`${url}/functions/v1/${name}`, {
-    method:  'POST',
-    headers: {
-      Authorization:  `Bearer ${serviceRole}`,
-      apikey:         anon,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(body),
+  const { data, error } = await getSupabase().functions.invoke(name, {
+    body: body as Record<string, unknown>,
   });
 
-  const text = await res.text();
-  if (!res.ok) {
-    console.error(
-      `[edge-fn] "${name}" failed — status=${res.status} body=${text}`,
-    );
-    throw new Error(`Edge function "${name}" failed (${res.status}): ${text}`);
+  if (error) {
+    // Pull out as much detail as possible for Railway logs
+    const status  = (error as any).context?.status  ?? 'unknown';
+    const detail  = (error as any).context?.body    ?? error.message;
+    console.error(`[edge-fn] "${name}" failed — status=${status} body=${detail}`);
+    throw new Error(`Edge function "${name}" failed (${status}): ${detail}`);
   }
 
-  try {
-    return JSON.parse(text) as T;
-  } catch {
-    throw new Error(`Edge function "${name}" returned non-JSON: ${text}`);
-  }
+  return data as T;
 }
 
 export async function poll<T>(opts: {
