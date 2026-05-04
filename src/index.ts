@@ -4,7 +4,6 @@ import { randomUUID } from 'node:crypto';
 import { StdioServerTransport }          from '@modelcontextprotocol/sdk/server/stdio.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import express, { Request, Response, NextFunction } from 'express';
-import { createClient }                              from '@supabase/supabase-js';
 
 import { createServer }                                        from './server.js';
 import { setAuthSession, deleteAuthSession, getAuthSession }   from './auth.js';
@@ -203,26 +202,38 @@ if (PORT) {
     }
 
     try {
-      const client = createClient(supabaseUrl, supabaseAnon, { auth: { persistSession: false } });
-      const { data, error } = await client.auth.signInWithPassword({ email, password });
+      const authUrl = `${supabaseUrl}/auth/v1/token?grant_type=password`;
+      console.log(`[auth] POST ${authUrl} (apikey length=${supabaseAnon.length})`);
 
-      if (error || !data.session) {
-        res.status(401).json({ error: error?.message ?? 'Authentication failed' });
+      const authRes = await fetch(authUrl, {
+        method:  'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey':        supabaseAnon,
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const raw = await authRes.json() as any;
+      console.log(`[auth] sign-in response status=${authRes.status} body=${JSON.stringify(raw)}`);
+
+      if (!authRes.ok || !raw.access_token) {
+        res.status(401).json({ error: raw.error_description ?? raw.msg ?? raw.error ?? 'Authentication failed' });
         return;
       }
 
-      const { access_token, refresh_token, expires_at } = data.session;
+      const { access_token, refresh_token, expires_in } = raw;
 
       if (mcp_session) {
         setAuthSession(mcp_session, {
           access_token,
           refresh_token,
-          expires_at: expires_at ?? Math.floor(Date.now() / 1000) + 3600,
+          expires_at: Math.floor(Date.now() / 1000) + (expires_in ?? 3600),
         });
-        console.log(`[auth] session authenticated: mcp_session=${mcp_session} user=${data.user?.email}`);
+        console.log(`[auth] session authenticated: mcp_session=${mcp_session} user=${raw.user?.email}`);
       }
 
-      res.json({ ok: true, user: data.user?.email });
+      res.json({ ok: true, user: raw.user?.email });
     } catch (err) {
       console.error('[auth] sign-in error:', err);
       res.status(500).json({ error: 'Internal server error' });
