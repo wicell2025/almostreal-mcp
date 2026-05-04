@@ -1,10 +1,11 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { requestCtx } from './context.js';
 
-// Lazy singleton — created on first use so module import never throws.
-let _supabase: SupabaseClient | null = null;
+// Service-role singleton — used as fallback only.
+let _serviceClient: SupabaseClient | null = null;
 
-export function getSupabase(): SupabaseClient {
-  if (_supabase) return _supabase;
+function getServiceClient(): SupabaseClient {
+  if (_serviceClient) return _serviceClient;
 
   const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -16,8 +17,22 @@ export function getSupabase(): SupabaseClient {
     );
   }
 
-  _supabase = createClient(url, key, { auth: { persistSession: false } });
-  return _supabase;
+  _serviceClient = createClient(url, key, { auth: { persistSession: false } });
+  return _serviceClient;
+}
+
+export function getSupabase(): SupabaseClient {
+  const ctx = requestCtx.getStore();
+  if (ctx?.userToken) {
+    // Per-user client scoped to their JWT — edge functions see a real user context.
+    const url = process.env.SUPABASE_URL!;
+    const anon = process.env.SUPABASE_ANON_KEY!;
+    return createClient(url, anon, {
+      auth: { persistSession: false },
+      global: { headers: { Authorization: `Bearer ${ctx.userToken}` } },
+    });
+  }
+  return getServiceClient();
 }
 
 export async function callEdgeFunction<T = unknown>(
