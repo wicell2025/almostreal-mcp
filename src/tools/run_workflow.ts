@@ -28,14 +28,14 @@ interface Args {
 }
 
 export async function runWorkflow(args: Args): Promise<Record<string, unknown>> {
-  const supabaseUrl   = process.env.SUPABASE_URL;
-  const supabaseToken = process.env.SUPABASE_ACCESS_TOKEN || process.env.SUPABASE_ANON_KEY;
+  const supabaseUrl  = process.env.SUPABASE_URL;
+  const serviceRole  = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  if (!supabaseUrl || !supabaseToken) {
-    throw new Error('SUPABASE_URL and SUPABASE_ANON_KEY must be set to use run_workflow.');
+  if (!supabaseUrl || !serviceRole) {
+    throw new Error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set to use run_workflow.');
   }
 
-  const supabase = createClient(supabaseUrl, supabaseToken);
+  const supabase = createClient(supabaseUrl, serviceRole);
 
   // Load workflow definition from the database
   const { data: workflow, error } = await supabase

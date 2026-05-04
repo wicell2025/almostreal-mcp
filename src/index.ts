@@ -111,9 +111,9 @@ if (PORT) {
     console.log(`MCP Server listening on port ${PORT}`);
     console.log('Health check endpoint ready at /health');
     console.log('MCP endpoint ready at POST /mcp');
-    console.log(`SUPABASE_URL configured:          ${Boolean(process.env.SUPABASE_URL)}`);
-    console.log(`SUPABASE_ANON_KEY configured:     ${Boolean(process.env.SUPABASE_ANON_KEY)}`);
-    console.log(`SUPABASE_ACCESS_TOKEN configured: ${Boolean(process.env.SUPABASE_ACCESS_TOKEN)}`);
+    console.log(`SUPABASE_URL configured:              ${Boolean(process.env.SUPABASE_URL)}`);
+    console.log(`SUPABASE_ANON_KEY configured:         ${Boolean(process.env.SUPABASE_ANON_KEY)}`);
+    console.log(`SUPABASE_SERVICE_ROLE_KEY configured: ${Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY)}`);
   });
 } else {
   // ── stdio mode — Claude Desktop ───────────────────────────────────────────
