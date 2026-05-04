@@ -59,6 +59,19 @@ interface Args {
 }
 
 export async function generateImage(args: Args): Promise<string> {
+  console.log('[generate_image] called with args:', JSON.stringify(args));
+  try {
+    return await _generateImage(args);
+  } catch (err) {
+    console.error('[generate_image] FAILED');
+    console.error('[generate_image] error type:   ', err instanceof Error ? err.constructor.name : typeof err);
+    console.error('[generate_image] error message:', err instanceof Error ? err.message : String(err));
+    try { console.error('[generate_image] full error:   ', JSON.stringify(err, Object.getOwnPropertyNames(err))); } catch {}
+    throw err;
+  }
+}
+
+async function _generateImage(args: Args): Promise<string> {
   const model = args.model ?? 'gemini-flash';
   const ratio = args.aspect_ratio ?? '1:1';
 
