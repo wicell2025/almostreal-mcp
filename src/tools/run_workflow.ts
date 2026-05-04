@@ -1,10 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import { callEdgeFunction } from '../client.js';
 
-const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_ACCESS_TOKEN || process.env.SUPABASE_ANON_KEY!,
-);
+// createClient is deferred into the function body — no module-level calls
+// that could throw before app.listen() is reached.
 
 export const runWorkflowSchema = {
   type: 'object',
@@ -30,6 +28,15 @@ interface Args {
 }
 
 export async function runWorkflow(args: Args): Promise<Record<string, unknown>> {
+  const supabaseUrl   = process.env.SUPABASE_URL;
+  const supabaseToken = process.env.SUPABASE_ACCESS_TOKEN || process.env.SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseToken) {
+    throw new Error('SUPABASE_URL and SUPABASE_ANON_KEY must be set to use run_workflow.');
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseToken);
+
   // Load workflow definition from the database
   const { data: workflow, error } = await supabase
     .from('workflows')

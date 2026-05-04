@@ -1,20 +1,32 @@
-const SUPABASE_URL  = process.env.SUPABASE_URL!;
-const SUPABASE_ANON = process.env.SUPABASE_ANON_KEY!;
-const USER_TOKEN    = process.env.SUPABASE_ACCESS_TOKEN || SUPABASE_ANON;
+// All env reads are deferred into the function body so module import never throws.
+// The app can bind to PORT and serve /health even before env vars are configured.
 
-if (!SUPABASE_URL || !SUPABASE_ANON) {
-  throw new Error('SUPABASE_URL and SUPABASE_ANON_KEY must be set');
+function getEnv() {
+  const url   = process.env.SUPABASE_URL;
+  const anon  = process.env.SUPABASE_ANON_KEY;
+  const token = process.env.SUPABASE_ACCESS_TOKEN || anon;
+
+  if (!url || !anon) {
+    throw new Error(
+      'Missing env vars: SUPABASE_URL and SUPABASE_ANON_KEY must be set. ' +
+      'Add them in Railway → Variables.',
+    );
+  }
+
+  return { url, anon, token: token! };
 }
 
 export async function callEdgeFunction<T = unknown>(
   name: string,
   body: unknown,
 ): Promise<T> {
-  const res = await fetch(`${SUPABASE_URL}/functions/v1/${name}`, {
+  const { url, anon, token } = getEnv();
+
+  const res = await fetch(`${url}/functions/v1/${name}`, {
     method:  'POST',
     headers: {
-      Authorization:  `Bearer ${USER_TOKEN}`,
-      apikey:         SUPABASE_ANON,
+      Authorization:  `Bearer ${token}`,
+      apikey:         anon,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(body),
@@ -48,7 +60,7 @@ export async function poll<T>(opts: {
     await new Promise(r => setTimeout(r, interval));
     const data = await callEdgeFunction(opts.check, opts.body);
 
-    if (opts.isDone(data))                              return opts.extract(data);
+    if (opts.isDone(data)) return opts.extract(data);
     if (opts.isFailed?.(data) ?? (data as any).status === 'failed') {
       throw new Error(`Task failed: ${JSON.stringify(data)}`);
     }
