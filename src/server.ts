@@ -13,7 +13,6 @@ import { getAuthSession }                        from './auth.js';
 import { requestCtx }                            from './context.js';
 
 const BASE_URL = process.env.BASE_URL ?? 'https://almostreal-production.up.railway.app';
-const LOGIN_URL = `${BASE_URL}/login`;
 
 const TOOLS: Tool[] = [
   {
@@ -57,10 +56,12 @@ export function createServer(getSessionId?: () => string | undefined): Server {
     if (mcpSessionId) {
       const session = getAuthSession(mcpSessionId);
       if (!session) {
+        const loginUrl = `${BASE_URL}/login?mcp_session=${encodeURIComponent(mcpSessionId)}`;
+        console.log(`[auth] unauthenticated tool call — session=${mcpSessionId} tool=${name}`);
         return {
           content: [{
             type: 'text',
-            text: `Not authenticated. Please sign in to almostreal first:\n${LOGIN_URL}\n\nAfter signing in, reconnect this MCP server.`,
+            text: `Not authenticated. Please sign in to almostreal first:\n${loginUrl}\n\nAfter signing in, reconnect this MCP server.`,
           }],
           isError: true,
         };

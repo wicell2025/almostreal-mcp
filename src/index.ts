@@ -230,7 +230,7 @@ if (PORT) {
           refresh_token,
           expires_at: Math.floor(Date.now() / 1000) + (expires_in ?? 3600),
         });
-        console.log(`[auth] session authenticated: mcp_session=${mcp_session} user=${raw.user?.email}`);
+        console.log(`[auth] session stored for mcp_session=${mcp_session} user=${raw.user?.email}`);
       }
 
       res.json({ ok: true, user: raw.user?.email });
